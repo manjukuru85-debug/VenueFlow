@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VenueFlow – Approval Dashboard (MVP)</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f4f6f8; padding:20px; }
+    h1 { text-align:center; }
+    table { width:100%; border-collapse: collapse; background:#fff; }
+    th, td { padding:10px; border:1px solid #ddd; text-align:left; }
+    th { background:#007bff; color:white; }
+    tr:hover { background:#f1f1f1; cursor:pointer; }
+    .status-Pending { color:orange; font-weight:bold; }
+    .status-Approved { color:green; font-weight:bold; }
+    .status-Rejected { color:red; font-weight:bold; }
+    .panel { background:#fff; padding:15px; margin-top:20px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    button { margin:5px 5px 5px 0; padding:6px 12px; }
+    textarea { width:100%; height:60px; }
+    .flow span { margin-right:10px; }
+  </style>
+</head>
+<body>
+
+<h1>VenueFlow – Staff Approval Dashboard</h1>
+
+<!-- LIST VIEW -->
+<table>
+  <thead>
+    <tr>
+      <th>Requester</th>
+      <th>Event</th>
+      <th>Date</th>
+      <th>Venue</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody id="requestTable"></tbody>
+</table>
+
+<!-- DETAIL VIEW -->
+<div class="panel" id="detailPanel" style="display:none;">
+  <h3>Request Details</h3>
+  <div id="details"></div>
+
+  <h4>Approval Workflow</h4>
+  <div class="flow">
+    <span>Submitted ✔</span>
+    <span>Manager Review ⏳</span>
+    <span>Final Decision ⏳</span>
+  </div>
+
+  <p><b>Current Approver:</b> Venue Manager</p>
+  <p><b>Due Date:</b> <span id="dueDate"></span></p>
+
+  <h4>Comments / Notes</h4>
+  <textarea id="comment"></textarea>
+
+  <br />
+  <button onclick="approve()">Approve</button>
+  <button onclick="reject()">Reject</button>
+  <button onclick="requestInfo()">Request More Info</button>
+
+  <h4>Audit Trail</h4>
+  <ul id="history"></ul>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getFirestore, collection, onSnapshot, doc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+  // 🔥 Replace with your Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBmlReWYMpsnMqVxdIL0V1668ll4XHv_XM",
+    authDomain: "venue-76256.firebaseapp.com",
+    projectId: "venue-76256",
+    storageBucket: "venue-76256.firebasestorage.app",
+    messagingSenderId: "927554747990",
+    appId: "1:927554747990:web:5fc29c7d96410a8c2205f7"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const table = document.getElementById("requestTable");
+  const panel = document.getElementById("detailPanel");
+  const detailsDiv = document.getElementById("details");
+  const historyList = document.getElementById("history");
+  const dueDateSpan = document.getElementById("dueDate");
+
+  let selectedId = null;
+
+  // LIST VIEW (REAL-TIME)
+  onSnapshot(collection(db, "bookings"), snapshot => {
+    table.innerHTML = "";
+    snapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${d.name}</td>
+        <td>${d.eventType || "Event"}</td>
+        <td>${d.eventDate}</td>
+        <td>${d.venue}</td>
+        <td class="status-${d.status}">${d.status}</td>
+      `;
+      tr.onclick = () => showDetails(docSnap.id, d);
+      table.appendChild(tr);
+    });
+  });
+
+  function showDetails(id, d) {
+    selectedId = id;
+    panel.style.display = "block";
+
+    detailsDiv.innerHTML = `
+      <p><b>Requester:</b> ${d.name} (${d.email})</p>
+      <p><b>Department:</b> ${d.department || "N/A"}</p>
+      <p><b>Contact:</b> ${d.email}</p>
+      <p><b>Event:</b> ${d.eventType || "N/A"}</p>
+      <p><b>Guests:</b> ${d.guests}</p>
+      <p><b>Venue Capacity Needed:</b> ${d.guests}</p>
+      <p><b>Setup Needs:</b> ${d.setup || "Standard"}</p>
+      <p><b>Purpose:</b> ${d.purpose || "N/A"}</p>
+      <p><b>Status:</b> ${d.status}</p>
+    `;
+
+    historyList.innerHTML = "";
+    (d.history || []).forEach(h => {
+      const li = document.createElement("li");
+      li.innerText = h;
+      historyList.appendChild(li);
+    });
+
+    const due = new Date();
+    due.setDate(due.getDate() + 2);
+    dueDateSpan.innerText = due.toDateString();
+  }
+
+  async function updateStatus(newStatus, note) {
+    if (!selectedId) return;
+    await updateDoc(doc(db, "bookings", selectedId), {
+      status: newStatus,
+      history: arrayUnion(`${newStatus} by Manager on ${new Date().toLocaleString()} - ${note}`)
+    });
+  }
+
+  window.approve = () => updateStatus("Approved", document.getElementById("comment").value);
+  window.reject = () => updateStatus("Rejected", document.getElementById("comment").value);
+  window.requestInfo = () => updateStatus("Needs More Info", document.getElementById("comment").value);
+</script>
+
+</body>
+</html>
