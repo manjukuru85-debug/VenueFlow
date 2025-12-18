@@ -1,0 +1,178 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VenueFlow – Venue Booking</title>
+
+  <!-- ================= CSS ================= -->
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .card {
+      background: #ffffff;
+      padding: 20px;
+      max-width: 520px;
+      margin: auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 15px;
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .price-box {
+      margin-top: 15px;
+      font-weight: bold;
+      color: green;
+    }
+    .success {
+      margin-top: 15px;
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      margin-top: 15px;
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>VenueFlow</h1>
+    <p style="text-align:center">Request a venue booking</p>
+
+    <label>Your Name</label>
+    <input type="text" id="name" placeholder="Enter your name" />
+
+    <label>Email</label>
+    <input type="email" id="email" placeholder="Enter your email" />
+
+    <label>Select Venue</label>
+    <select id="venue">
+      <option value="">-- Choose a venue --</option>
+      <option value="Hotel Grand|50">Hotel Grand (€50 per person)</option>
+      <option value="City Convention Hall|40">City Convention Hall (€40 per person)</option>
+      <option value="Royal Palace Hotel|70">Royal Palace Hotel (€70 per person)</option>
+      <option value="Ocean View Resort|60">Ocean View Resort (€60 per person)</option>
+      <option value="Skyline Corporate Hub|45">Skyline Corporate Hub (€45 per person)</option>
+      <option value="Green Garden Banquet|35">Green Garden Banquet (€35 per person)</option>
+      <option value="Elite Business Center|55">Elite Business Center (€55 per person)</option>
+      <option value="Sunset Dining Hall|30">Sunset Dining Hall (€30 per person)</option>
+      <option value="Luxe Event Space|80">Luxe Event Space (€80 per person)</option>
+      <option value="Metro Conference Hall|42">Metro Conference Hall (€42 per person)</option>
+    </select>
+
+    <label>Number of Guests</label>
+    <input type="number" id="guests" min="1" placeholder="Enter number of guests" />
+
+    <label>Event Date</label>
+    <input type="date" id="date" />
+
+    <div class="price-box" id="totalPrice">Total Price: €0</div>
+
+    <button onclick="submitBooking()">Request Booking</button>
+
+    <div id="message"></div>
+  </div>
+
+  <!-- ============== Firebase + JavaScript ============== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // 🔥 REPLACE THIS WITH YOUR OWN FIREBASE CONFIG
+    const firebaseConfig = {
+      apiKey: "AIzaSyBmlReWYMpsnMqVxdIL0V1668ll4XHv_XM",
+      authDomain: "venue-76256.firebaseapp.com",
+      projectId: "venue-76256",
+      storageBucket: "venue-76256.firebasestorage.app",
+      messagingSenderId: "927554747990",
+      appId: "1:927554747990:web:5fc29c7d96410a8c2205f7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const venueSelect = document.getElementById("venue");
+    const guestsInput = document.getElementById("guests");
+    const priceBox = document.getElementById("totalPrice");
+    const messageBox = document.getElementById("message");
+
+    venueSelect.addEventListener("change", calculatePrice);
+    guestsInput.addEventListener("input", calculatePrice);
+
+    function calculatePrice() {
+      if (!venueSelect.value || !guestsInput.value) {
+        priceBox.innerText = "Total Price: €0";
+        return;
+      }
+      const [venueName, price] = venueSelect.value.split("|");
+      const total = Number(price) * Number(guestsInput.value);
+      priceBox.innerText = `Total Price: €${total}`;
+    }
+
+    window.submitBooking = async function () {
+      const name = document.getElementById("name").value;
+      const email = document.getElementById("email").value;
+      const venueValue = venueSelect.value;
+      const guests = guestsInput.value;
+      const date = document.getElementById("date").value;
+
+      if (!name || !email || !venueValue || !guests || !date) {
+        messageBox.innerHTML = "<div class='error'>Please fill all fields</div>";
+        return;
+      }
+
+      const [venueName, price] = venueValue.split("|");
+      const totalPrice = Number(price) * Number(guests);
+
+      try {
+        await addDoc(collection(db, "bookings"), {
+          name,
+          email,
+          venue: venueName,
+          guests: Number(guests),
+          eventDate: date,
+          pricePerPerson: Number(price),
+          totalPrice,
+          status: "Pending",
+          createdAt: serverTimestamp()
+        });
+
+        messageBox.innerHTML = "<div class='success'>Booking request submitted! (Pending approval)</div>";
+      } catch (err) {
+        console.error(err);
+        messageBox.innerHTML = "<div class='error'>Error submitting booking</div>";
+      }
+    };
+  </script>
+
+</body>
+</html>
